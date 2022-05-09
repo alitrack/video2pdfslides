@@ -3,13 +3,14 @@ import time
 import cv2
 import imutils
 import shutil
-import img2pdf
+from PIL import Image
+import click
 import glob
-import argparse
+from pathlib import Path
 
 ############# Define constants
 
-OUTPUT_SLIDES_DIR = f"./output"
+# OUTPUT_SLIDES_DIR = f"./output"
 
 FRAME_RATE = 3                   # no.of frames per second that needs to be processed, fewer the count faster the speed
 WARMUP = FRAME_RATE              # initial number of frames to be skipped
@@ -19,6 +20,11 @@ DETECT_SHADOWS = False            # If true, the algorithm will detect shadows a
 MIN_PERCENT = 0.1                # min % of diff between foreground and background to detect if motion has stopped
 MAX_PERCENT = 3                  # max % of diff between foreground and background to detect if frame is still in motion
 
+def print_version(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo('Version 0.1.0')
+    ctx.exit()
 
 def get_frames(video_path):
     '''A fucntion to return the frames from a video located at video_path
@@ -108,9 +114,11 @@ def detect_unique_screenshots(video_path, output_folder_screenshot_path):
     return 
 
 
-def initialize_output_folder(video_path):
+def initialize_output_folder(video_path,output):
     '''Clean the output folder if already exists'''
-    output_folder_screenshot_path = f"{OUTPUT_SLIDES_DIR}/{video_path.rsplit('/')[-1].split('.')[0]}"
+    
+    stem = Path(video_path).stem
+    output_folder_screenshot_path = Path(output).joinpath(stem).as_posix()
 
     if os.path.exists(output_folder_screenshot_path):
         shutil.rmtree(output_folder_screenshot_path)
@@ -119,42 +127,69 @@ def initialize_output_folder(video_path):
     print('initialized output folder', output_folder_screenshot_path)
     return output_folder_screenshot_path
 
-
 def convert_screenshots_to_pdf(output_folder_screenshot_path):
-    output_pdf_path = f"{OUTPUT_SLIDES_DIR}/{video_path.rsplit('/')[-1].split('.')[0]}" + '.pdf'
+    path = Path(output_folder_screenshot_path).as_posix()
+    output_pdf_path = f"{path}.pdf"
     print('output_folder_screenshot_path', output_folder_screenshot_path)
     print('output_pdf_path', output_pdf_path)
     print('converting images to pdf..')
-    with open(output_pdf_path, "wb") as f:
-        f.write(img2pdf.convert(sorted(glob.glob(f"{output_folder_screenshot_path}/*.png"))))
+    image_list=[Image.open(img).convert('RGB') for img in sorted(glob.glob(f"{output_folder_screenshot_path}/*.png"))]
+    image_list[0].save(output_pdf_path, save_all=True, append_images=image_list[1:])
+    # with open(output_pdf_path, "wb") as f:
+    #     f.write(img2pdf.convert(sorted(glob.glob(f"{output_folder_screenshot_path}/*.png"))))
     print('Pdf Created!')
     print('pdf saved at', output_pdf_path)
 
 
-if __name__ == "__main__":
+"""
+FRAME_RATE = 3                   # no.of frames per second that needs to be processed, fewer the count faster the speed
+WARMUP = FRAME_RATE              # initial number of frames to be skipped
+FGBG_HISTORY = FRAME_RATE * 15   # no.of frames in background object
+VAR_THRESHOLD = 16               # Threshold on the squared Mahalanobis distance between the pixel and the model to decide whether a pixel is well described by the background model.
+DETECT_SHADOWS = False            # If true, the algorithm will detect shadows and mark them.
+MIN_PERCENT = 0.1                # min % of diff between foreground and background to detect if motion has stopped
+MAX_PERCENT = 3                  # max % of diff between foreground and background to detect if frame is still in motion
+"""
+
+@click.command()
+@click.option('--output', '-o', default= 'output', help='output folder for slides',type=click.Path(writable=True,file_okay=False),show_default=True)
+@click.option('--frame_rate', '-f', default= 3, 
+help='no.of frames per second that needs to be processed, fewer the count faster the speed', 
+envvar='FRAME_RATE',show_default="3 or set FRAME_RATE env var")
+@click.option('--var_threshold', '-v', default= 16, 
+help='Threshold on the squared Mahalanobis distance between the pixel and the model to decide whether a pixel is well described by the background model', 
+envvar='VAR_THRESHOLD',show_default="16 or set VAR_THRESHOLD env var")
+@click.option('--detect_shadows', '-d', 
+default= False, is_flag=True, help='If true, the algorithm will detect shadows and mark them', 
+envvar='DETECT_SHADOWS',show_default="False or set DETECT_SHADOWS env var")
+@click.option('--min_percent', '-n', default= 0.1, 
+help='min % of diff between foreground and background to detect if motion has stopped', 
+envvar='MIN_PERCENT',show_default="0.1 or set MIN_PERCENT env var")
+@click.option('--max_percent', '-x', default= 3, 
+help='max % of diff between foreground and background to detect if frame is still in motion', 
+envvar='MAX_PERCENT',show_default="3 or set MAX_PERCENT env var")
+@click.option('--version', is_flag=True, callback=print_version,
+              expose_value=False, is_eager=True)
+@click.argument('video_path', type=click.Path(exists=True), required=True)
+def convert(output,frame_rate,var_threshold,detect_shadows,min_percent,max_percent,video_path):
+    global FRAME_RATE,WARMUP,FGBG_HISTORY,VAR_THRESHOLD,DETECT_SHADOWS,MIN_PERCENT,MAX_PERCENT
+    FRAME_RATE = frame_rate                   # no.of frames per second that needs to be processed, fewer the count faster the speed
+    WARMUP = FRAME_RATE              # initial number of frames to be skipped
+    FGBG_HISTORY = FRAME_RATE * 15   # no.of frames in background object
+    VAR_THRESHOLD = var_threshold               # Threshold on the squared Mahalanobis distance between the pixel and the model to decide whether a pixel is well described by the background model.
+    DETECT_SHADOWS = detect_shadows            # If true, the algorithm will detect shadows and mark them.
+    MIN_PERCENT = min_percent                # min % of diff between foreground and background to detect if motion has stopped
+    MAX_PERCENT = max_percent                  # max % of diff between foreground and background to detect if frame is still in motion
+    # OUTPUT_SLIDES_DIR = output
     
-#     video_path = "./input/Test Video 2.mp4"
-#     choice = 'y'
-#     output_folder_screenshot_path = initialize_output_folder(video_path)
-    
-    
-    parser = argparse.ArgumentParser("video_path")
-    parser.add_argument("video_path", help="path of video to be converted to pdf slides", type=str)
-    args = parser.parse_args()
-    video_path = args.video_path
 
     print('video_path', video_path)
-    output_folder_screenshot_path = initialize_output_folder(video_path)
+    output_folder_screenshot_path = initialize_output_folder(video_path,output)
     detect_unique_screenshots(video_path, output_folder_screenshot_path)
 
-    print('Please Manually verify screenshots and delete duplicates')
-    while True:
-        choice = input("Press y to continue and n to terminate")
-        choice = choice.lower().strip()
-        if choice in ['y', 'n']:
-            break
-        else:
-            print('please enter a valid choice')
-
-    if choice == 'y':
+    if click.confirm('Please Manually verify screenshots and delete duplicates\n and Press y to continue and n to terminate',default=True):
         convert_screenshots_to_pdf(output_folder_screenshot_path)
+
+if __name__ == "__main__":
+    convert()
+        
