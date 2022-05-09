@@ -7,6 +7,7 @@ from PIL import Image
 import click
 import glob
 from pathlib import Path
+from img2pdf import img2pdf
 
 ############# Define constants
 
@@ -133,10 +134,10 @@ def convert_screenshots_to_pdf(output_folder_screenshot_path):
     print('output_folder_screenshot_path', output_folder_screenshot_path)
     print('output_pdf_path', output_pdf_path)
     print('converting images to pdf..')
-    image_list=[Image.open(img).convert('RGB') for img in sorted(glob.glob(f"{output_folder_screenshot_path}/*.png"))]
-    image_list[0].save(output_pdf_path, save_all=True, append_images=image_list[1:])
-    # with open(output_pdf_path, "wb") as f:
-    #     f.write(img2pdf.convert(sorted(glob.glob(f"{output_folder_screenshot_path}/*.png"))))
+    # image_list=[Image.open(img).convert('RGB') for img in sorted(glob.glob(f"{output_folder_screenshot_path}/*.png"))]
+    # image_list[0].save(output_pdf_path, save_all=True, append_images=image_list[1:])
+    with open(output_pdf_path, "wb") as f:
+        f.write(img2pdf.convert(sorted(glob.glob(f"{output_folder_screenshot_path}/*.png"))))
     print('Pdf Created!')
     print('pdf saved at', output_pdf_path)
 
