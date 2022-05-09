@@ -7,7 +7,7 @@ from PIL import Image
 import click
 import glob
 from pathlib import Path
-from img2pdf import img2pdf
+import img2pdf
 
 ############# Define constants
 
